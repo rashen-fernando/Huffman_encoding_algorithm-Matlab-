@@ -1,0 +1,54 @@
+clear all;
+clc;
+%step 1 - Read the original image into a Matrix. 
+
+original_image=imread('Parrots-680x680.jpg');
+original_image_gray = rgb2gray(original_image);
+% figure;
+% imshow(original_image);title('original_image');
+
+%--------------------------------------------------------------------------
+%step 2 - Select 16×16 cropped sub-image the starting point of the cropping window will depend on your Registration number
+
+%e/16/103
+%x position = 1*50 = 50 
+%y position = 03*4 = 12
+cropped_image = imcrop(original_image,[50,12,15,15]);
+cropped_image_gray = rgb2gray(cropped_image);
+% figure;
+% imshow(cropped_image);title('cropped_image');
+
+%--------------------------------------------------------------------------
+%step 3 - Quantize the output at Step 3 into 8 levels (level 0-7) using uniform quantization. 
+thresh = multithresh(original_image ,7);
+valuesMax = [thresh max(original_image(:))];
+[quant_image,index] = imquantize(original_image,thresh,valuesMax);
+% figure;
+% imshow(quant_image);title('quantized_image');
+
+%--------------------------------------------------------------------------
+%step 4 - Find the probability of each symbol distribution of the output at Step 
+
+[g,~,intensity_val] = grp2idx(quant_image(:));
+Frequency = accumarray(g,1);
+
+[intensity_val Frequency];
+proability = Frequency./sum(Frequency);
+
+input_signal =reshape(quant_image,[],1);                %sould feed in a vector to huffman encode function
+dict = huffmandict(intensity_val,proability);
+code = huffmanenco(input_signal,dict);
+
+text_message = join(string(reshape(code,1,[])),"");
+
+% file = fopen('cropped_image_rgb_huffman_inbuilt.txt','w');
+% fprintf(file,text_message);
+% fclose(file);
+
+%decoding recieved signal
+sig = huffmandeco(code,dict);
+pic=reshape(sig,680,680,3);
+
+figure;
+imshow(pic);
+title('recovered image huffman inbuilt');
