@@ -21,11 +21,11 @@ cropped_image_gray = rgb2gray(cropped_image);
 %--------------------------------------------------------------------------
 %step 3 - Quantize the output at Step 3 into 8 levels (level 0-7) using uniform quantization.
 %CHANGE IMAGE HERE
-choose_image = original_image;
+choose_image = cropped_image_gray;
 
 thresh = multithresh(choose_image ,7);                                   
 valuesMax = [thresh max(choose_image (:))];                              
-[quant_image,index] = imquantize(choose_image ,thresh,valuesMax);
+[quant_image,index] = imquantize(cropped_image ,thresh,valuesMax);
 % figure;
 % imshow(quant_image);title('quantized_image');
 
@@ -123,5 +123,11 @@ entropy_of_cropped = entropy(cropped_image);                               %answ
 % entropy_of_decompressed_cropped = entropy(pic);                          %answer = 2.8770
 
 %--------------------------------------------------------------------------
-%step 8 - : PSNR
-%[peaksnr, snr] = psnr(pic, original_image);                                %peak snr = 23.3000 , snr = 15.4179
+%step 9 - : PSNR
+% [peaksnr, snr] = psnr(pic, original_image);                                %peak snr = 23.3000 , snr = 15.4179
+
+
+%--------------------------------------------------------------------------
+%step 10 - : PSNR
+compression_ratio = length(reshape(cropped_image,[],1))/length(code);      %compression ratio for original image  = 0.3391
+                                                                           %compression ratio for c image  = 0.3418
