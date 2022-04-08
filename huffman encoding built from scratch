@@ -1,0 +1,127 @@
+clear all;
+clc;
+%step 1 - Read the original image into a Matrix. 
+
+original_image=imread('Parrots-680x680.jpg');
+original_image_gray = rgb2gray(original_image);
+% figure;
+% imshow(original_image);title('original_image');
+
+%--------------------------------------------------------------------------
+%step 2 - Select 16×16 cropped sub-image the starting point of the cropping window will depend on your Registration number
+
+%e/16/103
+%x position = 1*50 = 50 
+%y position = 03*4 = 12
+cropped_image = imcrop(original_image,[50,12,15,15]);
+cropped_image_gray = rgb2gray(cropped_image);
+% figure;
+% imshow(cropped_image);title('cropped_image');
+
+%--------------------------------------------------------------------------
+%step 3 - Quantize the output at Step 3 into 8 levels (level 0-7) using uniform quantization.
+%CHANGE IMAGE HERE
+choose_image = original_image;
+
+thresh = multithresh(choose_image ,7);                                   
+valuesMax = [thresh max(choose_image (:))];                              
+[quant_image,index] = imquantize(choose_image ,thresh,valuesMax);
+% figure;
+% imshow(quant_image);title('quantized_image');
+
+%--------------------------------------------------------------------------
+%step 4 - Find the probability of each symbol distribution of the output at Step 
+
+[g,~,intensity_val] = grp2idx(quant_image(:));
+Frequency = accumarray(g,1);
+
+[intensity_val Frequency];
+proability = Frequency./sum(Frequency);
+
+
+%--------------------------------------------------------------------------
+%step 5 - Construct the Huffman coding algorithm for cropped image at Step 4.
+symbols = ["a" ;"b"; "c"; "d"; "e"; "f"; "g"; "h"];                        %defining symbols as I find easy working with string and if we work wit intensity values there's a higher chance of performing arithmetic on them and we wont be able to use the as symbols
+T=table(intensity_val,Frequency,proability,symbols);                       %With tables we canstore different types of data organized.for example symbols(strings) and probabilities(double) connection is obvious with tables 
+
+Table_ascending_order = sortrows(T,{'proability'});                        %sort rows in table considering the probability column in ascending order
+
+Update_array  = table(Table_ascending_order.symbols,Table_ascending_order.proability); %temporary table for te ease of updating
+
+new_bits=[];                                                               
+bit_pattern=[];
+for i=1:length(Table_ascending_order.proability)
+    Var1 = Update_array.Var1(1)+Update_array.Var1(2);                      %merge symbols with lowest probabilitis
+    Var2 = Update_array.Var2(1)+Update_array.Var2(2);                      %add lowest probabilitis
+    %bit sequence generation
+    for j=1:length(T.symbols)                                              %This for loop is to traverse through "symbols" matrix and fill 1,0 acordingly to the "bit pattern" matrix
+        if( sum(char(T.symbols(j))== char(Update_array.Var1(1))+0) )       %checking whether 'first merged symbol with lowest probabilities' above matches with the elements in "symbol(j)"
+            if(Update_array.Var2(1) <= Update_array.Var2(2))               %lowest probbabilities gets the 1 
+                new_bits = [new_bits ; "1"];
+            else
+                new_bits = [new_bits ; "0"];
+            end
+        elseif( sum(char(T.symbols(j))== char(Update_array.Var1(2))+0) )   %checking whether 'second merged symbol with lowest probabilities' above matches with the elements in "symbol(j)"
+            if(Update_array.Var2(1) <= Update_array.Var2(2))
+                new_bits = [new_bits ; "0"];
+            else
+                new_bits = [new_bits ; "1"];
+            end
+        else
+            new_bits = [new_bits ; " "];
+        end
+    end
+    
+    bit_pattern = [new_bits bit_pattern];
+    new_bits=[];
+    if(Var2 == 1)
+        break;
+    else    
+        new_row = table(Var1, Var2);
+        Update_array =[Update_array;new_row];
+        Update_array([1,2],:) = [];
+        Update_array = sortrows(Update_array,{'Var2'});
+    end
+end
+bit_pattern = erase(join(bit_pattern(:,:),"  ")," ");
+T=[T table(bit_pattern)];
+encoded_message = join(T.bit_pattern(g(:)),"");                             %join bit pattern columns together to form the bit sequence
+
+%--------------------------------------------------------------------------
+%step 6 - : Save the compressed image into a text file. 
+% fileID = fopen('original_image_gray_huffman_encoded.txt','w');
+% fprintf(fileID,encoded_message);
+% fclose(fileID);
+
+%--------------------------------------------------------------------------
+%step 7 - : Decompress the outputs at Step 8 and 9, by reading in the text files 
+
+code=double(reshape(char(encoded_message),[],1))-48;                       %convert encoded message in to a form that inbuilt hhuffman decoder can understand
+                                                                           %dictionary file which is required to inbuilt huffman decoder
+dict={};
+for k=1:length(T.symbols)
+    cell={T.intensity_val(k) double(char(T.bit_pattern(k)))-48};
+    dict=[dict ; cell];
+    average_length = length( (double(char(T.bit_pattern(k)))-48) )*T.proability(k);   %croppped_rgb_image_average_length = 0.1875 , original rgd image average length = 0.1579
+end
+
+
+%decoding recieved signal
+sig = huffmandeco(code,dict);
+pic=reshape(sig,length(quant_image),length(quant_image),3);
+
+figure;
+imshow(pic);
+title('recovered cropped image using huffman algorithm I developed');
+
+%--------------------------------------------------------------------------
+%step 8 - : Calculate the entropy of the Source
+
+entropy_of_original = entropy(original_image);                             %answer = 7.6683
+entropy_of_decompressed = entropy(pic);                                    %answer = 2.8953
+entropy_of_cropped = entropy(cropped_image);                               %answer = 7.3631
+% entropy_of_decompressed_cropped = entropy(pic);                          %answer = 2.8770
+
+%--------------------------------------------------------------------------
+%step 8 - : PSNR
+%[peaksnr, snr] = psnr(pic, original_image);                                %peak snr = 23.3000 , snr = 15.4179
